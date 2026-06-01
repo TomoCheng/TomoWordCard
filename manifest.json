@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "TomoWordCard",
+  "version": "1.0",
+  "description": "反白文字點擊右鍵即可翻譯並自動儲存單字。",
+  "permissions": [
+    "contextMenus",
+    "storage"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  }
+}

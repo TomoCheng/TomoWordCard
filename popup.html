@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 320px;
+      font-family: "Segoe UI", Arial, sans-serif;
+      padding: 12px;
+      margin: 0;
+      background-color: #f9f9f9;
+    }
+    h3 {
+      margin: 0 0 12px 0;
+      color: #333;
+      border-bottom: 2px solid #4CAF50;
+      padding-bottom: 5px;
+    }
+    /* 其他 CSS 維持不變 */
+    details { background: white; margin-bottom: 8px; border: 1px solid #ddd; border-radius: 4px; overflow: hidden; }
+    summary { padding: 8px; background: #eee; font-weight: bold; cursor: pointer; user-select: none; outline: none; }
+    details[open] summary { border-bottom: 1px solid #ddd; background: #e0e0e0; }
+    .word-item { display: flex; align-items: center; padding: 8px; border-bottom: 1px solid #f0f0f0; }
+    .word-item:last-child { border-bottom: none; }
+    .word-checkbox { margin-right: 8px; cursor: pointer; }
+    .word-text { flex-grow: 1; font-weight: 500; color: #1a0dab; cursor: pointer; word-break: break-all; }
+    .word-text.learned { text-decoration: line-through; color: #aaa; }
+    .delete-btn { background: none; border: none; color: #ff5252; font-weight: bold; font-size: 14px; cursor: pointer; padding: 0 4px; margin-left: 8px; }
+    .delete-btn:hover { color: #d32f2f; }
+    .btn-group { display: flex; gap: 6px; margin-top: 12px; }
+    .action-btn { flex: 1; color: white; border: none; padding: 8px; cursor: pointer; border-radius: 4px; font-size: 12px; font-weight: bold; text-align: center; }
+    .btn-export { background-color: #2196F3; }
+    .btn-export:hover { background-color: #0b7dda; }
+    .btn-import { background-color: #4CAF50; }
+    .btn-import:hover { background-color: #45a049; }
+    .btn-clear { background-color: #555; }
+    .btn-clear:hover { background-color: #333; }
+    .empty-msg { color: #888; text-align: center; padding: 20px 0; }
+    /* 新增星號的樣式 */
+    .star-icon { color: #ff9800; font-weight: bold; margin-left: 4px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h3>TomoWordCard</h3>
+  
+  <div id="container"></div>
+
+  <div class="btn-group">
+    <button id="export-btn" class="action-btn btn-export">匯出備份</button>
+    <button id="import-btn" class="action-btn btn-import">匯入單字</button>
+    <input type="file" id="file-input" accept=".json" style="display: none;">
+  </div>
+  
+  <button id="clear-all" class="action-btn btn-clear" style="width: 100%; margin-top: 6px;">清除所有資料</button>
+
+  <script src="popup.js"></script>
+</body>
+</html>
