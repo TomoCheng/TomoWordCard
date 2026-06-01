@@ -5,10 +5,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileInput = document.getElementById('file-input');
   const clearAllBtn = document.getElementById('clear-all');
 
-  // 【新增】用來記錄每個日期的展開狀態，防止打勾時資料夾意外收合
   let openFoldersState = {}; 
 
-  // 渲染畫面的主函數
   function renderVocab() {
     chrome.storage.local.get({ vocabList: [] }, (result) => {
       const list = result.vocabList;
@@ -31,21 +29,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
       sortedDates.forEach(date => {
         const details = document.createElement('details');
-        
-        // 【變更】預設摺疊 (false)，但如果之前是展開的，就保持展開
         details.open = openFoldersState[date] || false;
 
-        // 【新增】監聽展開/摺疊事件，並記錄下來
         details.addEventListener('toggle', () => {
           openFoldersState[date] = details.open;
         });
 
-        // 【新增】檢查該日期內，是否還有「未熟悉（未打勾）」的單字
         const hasUnlearned = groups[date].some(item => !item.learned);
         const starHtml = hasUnlearned ? '<span class="star-icon">*</span>' : '';
 
         const summary = document.createElement('summary');
-        // 加入星號提示
         summary.innerHTML = `${date} (${groups[date].length}) ${starHtml}`;
         details.appendChild(summary);
 
@@ -53,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const itemDiv = document.createElement('div');
           itemDiv.className = 'word-item';
 
+          // A. Checkbox
           const checkbox = document.createElement('input');
           checkbox.type = 'checkbox';
           checkbox.className = 'word-checkbox';
@@ -61,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleLearned(item, checkbox.checked);
           });
 
+          // B. 單字文字
           const wordSpan = document.createElement('span');
           wordSpan.className = `word-text ${checkbox.checked ? 'learned' : ''}`;
           wordSpan.textContent = item.word;
@@ -70,6 +65,63 @@ document.addEventListener('DOMContentLoaded', () => {
             chrome.tabs.create({ url: translateUrl });
           });
 
+          // C. 翻譯輸入框
+          const transInput = document.createElement('input');
+          transInput.type = 'text';
+          transInput.className = 'trans-input';
+          transInput.placeholder = '自訂翻譯...';
+          transInput.value = item.translation || '';
+          
+          // 如果一開始有翻譯內容，就套用隱藏樣式
+          if (item.translation) {
+            transInput.classList.add('is-masked');
+          }
+
+          // 點擊輸入框時解除隱藏，方便編輯
+          transInput.addEventListener('focus', () => {
+            transInput.classList.remove('is-masked');
+          });
+
+          // 失去焦點時儲存，並判斷是否要重新隱藏
+          transInput.addEventListener('blur', () => {
+            const newVal = transInput.value.trim();
+            if (newVal) {
+              transInput.classList.add('is-masked');
+            }
+            if (newVal !== (item.translation || '')) {
+              saveTranslation(item, newVal);
+              item.translation = newVal; // 更新當前物件狀態
+            }
+          });
+
+          // 按下 Enter 也能儲存並失去焦點
+          transInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+              transInput.blur();
+            }
+          });
+
+          // D. 查看按鈕 (長按眼睛)
+          const peekBtn = document.createElement('button');
+          peekBtn.className = 'peek-btn';
+          peekBtn.textContent = '👁️';
+          peekBtn.title = '按住查看翻譯';
+
+          const showTrans = () => transInput.classList.remove('is-masked');
+          const hideTrans = () => {
+            if (transInput.value.trim()) {
+              transInput.classList.add('is-masked');
+            }
+          };
+
+          // 綁定滑鼠與觸控事件
+          peekBtn.addEventListener('mousedown', showTrans);
+          peekBtn.addEventListener('touchstart', showTrans);
+          peekBtn.addEventListener('mouseup', hideTrans);
+          peekBtn.addEventListener('mouseleave', hideTrans);
+          peekBtn.addEventListener('touchend', hideTrans);
+
+          // E. 刪除按鈕
           const deleteBtn = document.createElement('button');
           deleteBtn.className = 'delete-btn';
           deleteBtn.textContent = '×';
@@ -81,8 +133,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           });
 
+          // 依序放入容器 (最左邊是Checkbox -> 單字 -> 輸入框 -> 眼睛 -> 刪除)
           itemDiv.appendChild(checkbox);
           itemDiv.appendChild(wordSpan);
+          itemDiv.appendChild(transInput);
+          itemDiv.appendChild(peekBtn);
           itemDiv.appendChild(deleteBtn);
           details.appendChild(itemDiv);
         });
@@ -92,13 +147,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // 儲存自訂翻譯
+  function saveTranslation(targetItem, newTranslation) {
+    chrome.storage.local.get({ vocabList: [] }, (result) => {
+      const list = result.vocabList;
+      const target = list.find(item => 
+        (item.id && targetItem.id) ? item.id === targetItem.id : item.word === targetItem.word
+      );
+      if (target) {
+        target.translation = newTranslation;
+        chrome.storage.local.set({ vocabList: list });
+      }
+    });
+  }
+
   function toggleLearned(targetItem, isChecked) {
     chrome.storage.local.get({ vocabList: [] }, (result) => {
       const list = result.vocabList;
       const target = list.find(item => 
         (item.id && targetItem.id) ? item.id === targetItem.id : item.word === targetItem.word
       );
-      
       if (target) {
         target.learned = isChecked;
         chrome.storage.local.set({ vocabList: list }, () => {
@@ -117,14 +185,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return item.word !== targetItem.word;
       });
-      
       chrome.storage.local.set({ vocabList: updatedList }, () => {
         renderVocab(); 
       });
     });
   }
 
-  // 匯出功能
   exportBtn.addEventListener('click', () => {
     chrome.storage.local.get({ vocabList: [] }, (result) => {
       const list = result.vocabList;
@@ -145,7 +211,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // 匯入功能
   importBtn.addEventListener('click', () => {
     fileInput.click();
   });
@@ -173,7 +238,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 id: importedItem.id || Date.now().toString() + Math.random().toString(36).substr(2, 5),
                 word: importedItem.word,
                 date: importedItem.date || new Date().toLocaleDateString(),
-                learned: importedItem.learned !== undefined ? importedItem.learned : false
+                learned: importedItem.learned !== undefined ? importedItem.learned : false,
+                translation: importedItem.translation || '' // 匯入時也支援翻譯欄位
               };
               currentList.push(newItem);
               importCount++;
@@ -192,11 +258,9 @@ document.addEventListener('DOMContentLoaded', () => {
     reader.readAsText(file);
   });
 
-  // 清除功能
   clearAllBtn.addEventListener('click', () => {
     if (confirm('確定要清空所有的單字筆記嗎？此操作無法復原。')) {
       chrome.storage.local.set({ vocabList: [] }, () => {
-        // 清空時也順便把展開狀態清掉
         openFoldersState = {};
         renderVocab();
       });

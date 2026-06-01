@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <style>
     body {
-      width: 320px;
+      width: 360px; /* 稍微加寬以容納新按鈕 */
       font-family: "Segoe UI", Arial, sans-serif;
       padding: 12px;
       margin: 0;
@@ -16,7 +16,6 @@
       border-bottom: 2px solid #4CAF50;
       padding-bottom: 5px;
     }
-    /* 其他 CSS 維持不變 */
     details { background: white; margin-bottom: 8px; border: 1px solid #ddd; border-radius: 4px; overflow: hidden; }
     summary { padding: 8px; background: #eee; font-weight: bold; cursor: pointer; user-select: none; outline: none; }
     details[open] summary { border-bottom: 1px solid #ddd; background: #e0e0e0; }
@@ -25,8 +24,46 @@
     .word-checkbox { margin-right: 8px; cursor: pointer; }
     .word-text { flex-grow: 1; font-weight: 500; color: #1a0dab; cursor: pointer; word-break: break-all; }
     .word-text.learned { text-decoration: line-through; color: #aaa; }
-    .delete-btn { background: none; border: none; color: #ff5252; font-weight: bold; font-size: 14px; cursor: pointer; padding: 0 4px; margin-left: 8px; }
+    
+    /* 自訂翻譯輸入框樣式 */
+    .trans-input {
+      width: 100px;
+      padding: 2px 4px;
+      margin-right: 4px;
+      text-align: right;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 12px;
+      outline: none;
+      transition: background-color 0.2s;
+    }
+    /* 隱藏狀態：文字變透明、背景反灰 */
+    .trans-input.is-masked {
+      color: transparent;
+      background-color: #ddd;
+      border-color: #ddd;
+      cursor: pointer;
+    }
+    .trans-input.is-masked::placeholder {
+      color: transparent;
+    }
+
+    /* 查看按鈕樣式 */
+    .peek-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 0;
+      margin-right: 4px;
+      color: #666;
+      user-select: none; /* 防止連點時選取到文字 */
+    }
+    .peek-btn:hover { color: #333; }
+
+    .delete-btn { background: none; border: none; color: #ff5252; font-weight: bold; font-size: 14px; cursor: pointer; padding: 0 4px; margin-left: 2px; }
     .delete-btn:hover { color: #d32f2f; }
+    
     .btn-group { display: flex; gap: 6px; margin-top: 12px; }
     .action-btn { flex: 1; color: white; border: none; padding: 8px; cursor: pointer; border-radius: 4px; font-size: 12px; font-weight: bold; text-align: center; }
     .btn-export { background-color: #2196F3; }
@@ -36,7 +73,6 @@
     .btn-clear { background-color: #555; }
     .btn-clear:hover { background-color: #333; }
     .empty-msg { color: #888; text-align: center; padding: 20px 0; }
-    /* 新增星號的樣式 */
     .star-icon { color: #ff9800; font-weight: bold; margin-left: 4px; font-size: 14px; }
   </style>
 </head>
