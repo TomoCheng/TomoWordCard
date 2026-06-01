@@ -4,16 +4,35 @@ document.addEventListener('DOMContentLoaded', () => {
   const importBtn = document.getElementById('import-btn');
   const fileInput = document.getElementById('file-input');
   const clearAllBtn = document.getElementById('clear-all');
+  const langSelect = document.getElementById('lang-select');
 
   let openFoldersState = {}; 
 
+  // Initialize Language Settings from Storage
+  chrome.storage.local.get({ appLanguage: 'en' }, (result) => {
+    const savedLang = result.appLanguage;
+    langSelect.value = savedLang;
+    applyLocalization(savedLang);
+    renderVocab(); // Render list after localization is set
+  });
+
+  // Handle Language Dropdown Changes with persistence
+  langSelect.addEventListener('change', (e) => {
+    const selectedLang = e.target.value;
+    chrome.storage.local.set({ appLanguage: selectedLang }, () => {
+      applyLocalization(selectedLang);
+      renderVocab(); // Re-render to reflect language change instantly
+    });
+  });
+
+  // Main render function for vocabulary items
   function renderVocab() {
     chrome.storage.local.get({ vocabList: [] }, (result) => {
       const list = result.vocabList;
       containerEl.innerHTML = '';
 
       if (list.length === 0) {
-        containerEl.innerHTML = '<div class="empty-msg">還沒有儲存任何單字喔！</div>';
+        containerEl.innerHTML = `<div class="empty-msg">${getLocaleString('emptyMsg')}</div>`;
         return;
       }
 
@@ -29,12 +48,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
       sortedDates.forEach(date => {
         const details = document.createElement('details');
+        // Keep folder state: default to closed (false) unless opened previously
         details.open = openFoldersState[date] || false;
 
         details.addEventListener('toggle', () => {
           openFoldersState[date] = details.open;
         });
 
+        // Check for any unlearned (unchecked) items in this group
         const hasUnlearned = groups[date].some(item => !item.learned);
         const starHtml = hasUnlearned ? '<span class="star-icon">*</span>' : '';
 
@@ -46,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const itemDiv = document.createElement('div');
           itemDiv.className = 'word-item';
 
-          // A. Checkbox
+          // A. Checkbox Element
           const checkbox = document.createElement('input');
           checkbox.type = 'checkbox';
           checkbox.className = 'word-checkbox';
@@ -55,34 +76,42 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleLearned(item, checkbox.checked);
           });
 
-          // B. 單字文字
+          // B. Vocabulary Word Display
           const wordSpan = document.createElement('span');
           wordSpan.className = `word-text ${checkbox.checked ? 'learned' : ''}`;
           wordSpan.textContent = item.word;
-          wordSpan.title = "點擊前往 Google 翻譯複習";
+          wordSpan.title = getLocaleString('reviewTip');
           wordSpan.addEventListener('click', () => {
-            const translateUrl = `https://translate.google.com/?sl=auto&tl=zh-TW&text=${encodeURIComponent(item.word)}&op=translate`;
+            let translateUrl = '';
+            // Change Google Translate configuration based on the current language selection
+            if (currentLang === 'ja') {
+              // English to Japanese
+              translateUrl = `https://translate.google.com/?sl=en&tl=ja&text=${encodeURIComponent(item.word)}&op=translate`;
+            } else {
+              // Auto detect to Traditional Chinese
+              translateUrl = `https://translate.google.com/?sl=auto&tl=zh-TW&text=${encodeURIComponent(item.word)}&op=translate`;
+            }
             chrome.tabs.create({ url: translateUrl });
           });
 
-          // C. 翻譯輸入框
+          // C. Custom Translation Input Box
           const transInput = document.createElement('input');
           transInput.type = 'text';
           transInput.className = 'trans-input';
-          transInput.placeholder = '自訂翻譯...';
+          transInput.placeholder = getLocaleString('placeholderTrans');
           transInput.value = item.translation || '';
           
-          // 如果一開始有翻譯內容，就套用隱藏樣式
+          // Apply mask if a translation already exists
           if (item.translation) {
             transInput.classList.add('is-masked');
           }
 
-          // 點擊輸入框時解除隱藏，方便編輯
+          // Unmask on focus for clear editing
           transInput.addEventListener('focus', () => {
             transInput.classList.remove('is-masked');
           });
 
-          // 失去焦點時儲存，並判斷是否要重新隱藏
+          // Save on blur and determine masking status
           transInput.addEventListener('blur', () => {
             const newVal = transInput.value.trim();
             if (newVal) {
@@ -90,22 +119,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (newVal !== (item.translation || '')) {
               saveTranslation(item, newVal);
-              item.translation = newVal; // 更新當前物件狀態
+              item.translation = newVal;
             }
           });
 
-          // 按下 Enter 也能儲存並失去焦點
+          // Allow saving via Enter key
           transInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
               transInput.blur();
             }
           });
 
-          // D. 查看按鈕 (長按眼睛)
+          // D. Peek Button (Hold to preview translation)
           const peekBtn = document.createElement('button');
           peekBtn.className = 'peek-btn';
           peekBtn.textContent = '👁️';
-          peekBtn.title = '按住查看翻譯';
+          peekBtn.title = getLocaleString('peekTitle');
 
           const showTrans = () => transInput.classList.remove('is-masked');
           const hideTrans = () => {
@@ -114,26 +143,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           };
 
-          // 綁定滑鼠與觸控事件
+          // Bind trigger events for both standard mouse and touch inputs
           peekBtn.addEventListener('mousedown', showTrans);
           peekBtn.addEventListener('touchstart', showTrans);
           peekBtn.addEventListener('mouseup', hideTrans);
           peekBtn.addEventListener('mouseleave', hideTrans);
           peekBtn.addEventListener('touchend', hideTrans);
 
-          // E. 刪除按鈕
+          // E. Delete Button
           const deleteBtn = document.createElement('button');
           deleteBtn.className = 'delete-btn';
           deleteBtn.textContent = '×';
-          deleteBtn.title = `刪除「${item.word}」`;
+          deleteBtn.title = getLocaleString('deleteTitle', { word: item.word });
           deleteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (confirm(`確定要刪除「${item.word}」嗎？`)) {
+            if (confirm(getLocaleString('deleteConfirm', { word: item.word }))) {
               deleteWord(item);
             }
           });
 
-          // 依序放入容器 (最左邊是Checkbox -> 單字 -> 輸入框 -> 眼睛 -> 刪除)
+          // Append elements in chronological structural order
           itemDiv.appendChild(checkbox);
           itemDiv.appendChild(wordSpan);
           itemDiv.appendChild(transInput);
@@ -147,7 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 儲存自訂翻譯
+  // Save the custom translation to local storage
   function saveTranslation(targetItem, newTranslation) {
     chrome.storage.local.get({ vocabList: [] }, (result) => {
       const list = result.vocabList;
@@ -161,6 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Toggle the checked/unchecked state of a word
   function toggleLearned(targetItem, isChecked) {
     chrome.storage.local.get({ vocabList: [] }, (result) => {
       const list = result.vocabList;
@@ -176,6 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Delete an individual word from the list
   function deleteWord(targetItem) {
     chrome.storage.local.get({ vocabList: [] }, (result) => {
       const list = result.vocabList;
@@ -191,11 +222,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Export functionality
   exportBtn.addEventListener('click', () => {
     chrome.storage.local.get({ vocabList: [] }, (result) => {
       const list = result.vocabList;
       if (list.length === 0) {
-        alert('目前沒有任何單字可以匯出喔！');
+        alert(getLocaleString('exportEmptyAlert'));
         return;
       }
       const dataStr = JSON.stringify(list, null, 2);
@@ -203,7 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `TomoWordCard_備份_${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `TomoWordCard_Backup_${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -211,10 +243,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Import Trigger Functionality
   importBtn.addEventListener('click', () => {
     fileInput.click();
   });
 
+  // Handle importing list from an external backup JSON file
   fileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -223,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const importedList = JSON.parse(event.target.result);
         if (!Array.isArray(importedList)) {
-          alert('檔案格式錯誤，匯入失敗！');
+          alert(getLocaleString('importFailFormat'));
           return;
         }
         chrome.storage.local.get({ vocabList: [] }, (result) => {
@@ -239,33 +273,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 word: importedItem.word,
                 date: importedItem.date || new Date().toLocaleDateString(),
                 learned: importedItem.learned !== undefined ? importedItem.learned : false,
-                translation: importedItem.translation || '' // 匯入時也支援翻譯欄位
+                translation: importedItem.translation || ''
               };
               currentList.push(newItem);
               importCount++;
             }
           });
           chrome.storage.local.set({ vocabList: currentList }, () => {
-            alert(`匯入完成！成功匯入 ${importCount} 個新單字。`);
+            alert(getLocaleString('importSuccessAlert', { count: importCount }));
             fileInput.value = ''; 
             renderVocab();
           });
         });
       } catch (err) {
-        alert('解析檔案失敗，請確保該檔案是正確的 JSON 備份檔。');
+        alert(getLocaleString('importFailParse'));
       }
     };
     reader.readAsText(file);
   });
 
+  // Clear all data entries from storage
   clearAllBtn.addEventListener('click', () => {
-    if (confirm('確定要清空所有的單字筆記嗎？此操作無法復原。')) {
+    if (confirm(getLocaleString('clearAllConfirm'))) {
       chrome.storage.local.set({ vocabList: [] }, () => {
         openFoldersState = {};
         renderVocab();
       });
     }
   });
-
-  renderVocab();
 });
