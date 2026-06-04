@@ -50,6 +50,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
           word: selectedText,
           date: new Date().toLocaleDateString(),
           learned: false,
+          starred: false,
           translation: ""
         };
         list.push(newItem);

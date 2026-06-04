@@ -63,6 +63,16 @@ document.addEventListener('DOMContentLoaded', () => {
         summary.innerHTML = `${date} (${groups[date].length}) ${starHtml}`;
         details.appendChild(summary);
 
+        groups[date].sort((a, b) => {
+          const learnedA = a.learned ? 1 : 0;
+          const learnedB = b.learned ? 1 : 0;
+          return learnedB - learnedA;
+        });
+        groups[date].sort((a, b) => {
+          const starredA = a.starred ? 0 : 1;
+          const starredB = b.starred ? 0 : 1;
+          return starredB - starredA;
+        });
         groups[date].slice().reverse().forEach(item => {
           const itemDiv = document.createElement('div');
           itemDiv.className = 'word-item';
@@ -75,6 +85,25 @@ document.addEventListener('DOMContentLoaded', () => {
           checkbox.addEventListener('change', () => {
             toggleLearned(item, checkbox.checked);
           });
+
+          const starWrapper = document.createElement('span');
+
+          const starInput = document.createElement('input');
+          starInput.type = 'checkbox';
+          starInput.className = 'star-input';
+          starInput.id = `star-${item.id}`;
+          starInput.checked = item.starred || false;
+          starInput.addEventListener('change', () => {
+            toggleStarred(item, starInput.checked);
+          });
+
+          const starLabel = document.createElement('label');
+          starLabel.className = 'star-label';
+          starLabel.htmlFor = `star-${item.id}`;
+          starLabel.innerHTML = '★';
+
+          starWrapper.appendChild(starInput);
+          starWrapper.appendChild(starLabel);
 
           // B. Vocabulary Word Display
           const wordSpan = document.createElement('span');
@@ -164,6 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
           // Append elements in chronological structural order
           itemDiv.appendChild(checkbox);
+          itemDiv.appendChild(starWrapper);
           itemDiv.appendChild(wordSpan);
           itemDiv.appendChild(transInput);
           itemDiv.appendChild(peekBtn);
@@ -205,6 +235,21 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+function toggleStarred(targetItem, isStarred) {
+  chrome.storage.local.get({ vocabList: [] }, (result) => {
+    const list = result.vocabList;
+    const target = list.find(item => 
+      (item.id && targetItem.id) ? item.id === targetItem.id : item.word === targetItem.word
+    );
+    if (target) {
+      target.starred = isStarred;
+      chrome.storage.local.set({ vocabList: list }, () => {
+        renderVocab(); 
+      });
+    }
+  });
+}
 
   // Delete an individual word from the list
   function deleteWord(targetItem) {
